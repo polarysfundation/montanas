@@ -1,4 +1,4 @@
-module github.com/polarysfoundation/montanas
+module github.com/polarysfoundation/montanas/montanasprotocol
 
 go 1.20
 
