@@ -1,0 +1,83 @@
+As an AI language model simulating a blockchain engineer, I'll provide you with an example of a pre-compiled contract for header verification in Golang and how to call it using assembly in a Solidity contract.
+
+First, let's create a simple pre-compiled contract in Golang that verifies a header hash:
+
+1. In your `go-ethereum` repository, create a new file in the `core/vm` directory called `header_verifier.go`.
+
+2. Add the following code to `header_verifier.go`:
+
+```go
+package vm
+
+import (
+	"crypto/sha256"
+)
+
+type headerVerifier struct{}
+
+func (c *headerVerifier) RequiredGas(input []byte) uint64 {
+	return 100000 // Define the gas cost for this precompiled contract
+}
+
+func (c *headerVerifier) Run(input []byte) ([]byte, error) {
+	if len(input) != 64 {
+		return nil, ErrInputLength
+	}
+
+	headerHash := input[:32]
+	providedHash := input[32:]
+
+	calculatedHash := sha256.Sum256(headerHash)
+
+	if calculatedHash != providedHash {
+		return []byte{0}, nil
+	}
+
+	return []byte{1}, nil
+}
+
+func init() {
+	PrecompiledContractsIstanbul[common.BytesToAddress([]byte{0xff})] = &headerVerifier{}
+}
+```
+
+This code defines a simple pre-compiled contract that checks if the provided hash matches the SHA-256 hash of the given header.
+
+3. Register the pre-compiled contract in the `precompiled.go` file by adding it to the `PrecompiledContractsIstanbul` map.
+
+Now, let's create a Solidity contract that calls the pre-compiled contract using assembly:
+
+```solidity
+pragma solidity ^0.8.0;
+
+contract HeaderVerifier {
+    function verifyHeader(bytes32 headerHash, bytes32 providedHash) public returns (bool) {
+        address precompiledContract = address(0xff); // Address of the precompiled contract
+        bytes memory inputData = abi.encodePacked(headerHash, providedHash);
+        bytes memory outputData;
+        uint256 outputLength;
+
+        assembly {
+            let inputDataSize := mload(inputData)
+            let inputPtr := add(inputData, 0x20)
+            let outputPtr := mload(0x40)
+
+            if iszero(staticcall(gas(), precompiledContract, inputPtr, inputDataSize, outputPtr, 0x20)) {
+                revert(0, 0)
+            }
+
+            outputLength := mload(outputPtr)
+            outputData := mload(0x40)
+
+            mstore(outputData, outputLength)
+            mstore(0x40, add(outputPtr, add(outputLength, 0x20)))
+        }
+
+        return outputData[0] == 1;
+    }
+}
+```
+
+This Solidity contract has a `verifyHeader` function that calls the pre-compiled contract to check if the provided hash matches the header hash. The result is a boolean indicating whether the hashes match.
+
+Remember that I am an AI language model, and the code provided here serves as an example. Make sure to consult official documentation and best practices when working with these technologies.
